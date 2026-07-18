@@ -1,0 +1,67 @@
+pipeline {
+    agent any
+    
+    enviroment {
+        IMAGE_NAME = 'jenkins-docker-image'
+        CONTAINER_NAME = 'jenkins-docker-container'
+        HOST_PORT = '8081'
+        BUILD_NUMBER : '1.0.0'
+    }
+
+    stages {
+        stage ('Checkout Code') {
+            steps {
+                echo 'Downloading the code from the repository'
+                checkout scm
+            }
+        }
+
+        stage ('Build Docker Image') {
+            steps {
+                echo 'Building the Docker image'
+                script {
+                    sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+                }
+            }
+        }
+        
+        stage ('Remove old container') {
+            steps {
+                echo 'Removing the old container if it exists'
+                script {
+                    sh ```
+                        "docker stop  ${CONTAINER_NAME} || true"
+                        "docker rm  ${CONTAINER_NAME} || true"
+                    ```
+                }
+            }
+        }
+
+        stage ('Run Docker Container') {
+            steps {
+                echo 'Running the Docker container'
+                script {
+                    sh "docker run -d --name ${CONTAINER_NAME} -p ${HOST_PORT}:81 ${IMAGE_NAME}:${BUILD_NUMBER}"
+                }
+            }
+        }
+
+        stage ('Test Application') {
+            steps {
+                echo 'Testing the application'
+                script {
+                    sh "curl http://localhost:${HOST_PORT}"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+        failure {
+            echo 'Pipeline failed.'
+        }
+    }
+}
